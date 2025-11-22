@@ -1,13 +1,9 @@
 # bacchus-samples
 
-このプロジェクトは、JavaとKotlinのDTO（Data Transfer Object）の違いを実践的に比較するためのサンプルアプリケーション集です。
-
 ## プロジェクト構成
 
 - `java-db-sample`: Java版のDBアクセスアプリケーション
 - `kotlin-db-sample`: Kotlin版のDBアクセスアプリケーション
-- `app`: デフォルトのサンプルアプリ
-- `utils`: 共通ユーティリティ
 - `buildSrc`: ビルド設定の共通化
 
 ## 実行方法
