@@ -37,32 +37,41 @@ bacchus-samples/
 
 ## DTOの違い: JavaとKotlinの比較
 
-### 1. コード量の違い
+### 1. コード量の違い（nullableフィールドを含む）
 
-#### Java版のDTO (約80行)
+#### Java版のDTO (約130行)
 ```java
 public class UserDto {
     private Long id;
     private String name;
     private String email;
     private int age;
+    // Nullable fields (DBでNULLが許可されているカラム)
+    private String nickname;      // ニックネーム（任意）
+    private String phoneNumber;   // 電話番号（任意）
+    private String address;       // 住所（任意）
 
     public UserDto() {
     }
 
-    public UserDto(Long id, String name, String email, int age) {
+    public UserDto(Long id, String name, String email, int age, String nickname, String phoneNumber, String address) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.age = age;
+        this.nickname = nickname;
+        this.phoneNumber = phoneNumber;
+        this.address = address;
     }
 
-    // 各フィールドのgetter/setter (約40行)
+    // 各フィールドのgetter/setter (約70行)
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
     // ... 他のgetter/setter
 
-    // equals, hashCode, toString (約30行)
+    // equals, hashCode, toString (約40行)
     @Override
     public boolean equals(Object o) { /* ... */ }
 
@@ -74,17 +83,29 @@ public class UserDto {
 }
 ```
 
-#### Kotlin版のDTO (約10行)
+**問題点:**
+- nullableなフィールド（nickname, phoneNumber, address）も型では区別できない
+- 使用時に常にnullチェックが必要（忘れるとNullPointerException）
+
+#### Kotlin版のDTO (約15行)
 ```kotlin
 data class UserDto(
     val id: Long? = null,
     val name: String,
     val email: String,
-    val age: Int
+    val age: Int,
+    val nickname: String? = null,      // ニックネーム（任意）
+    val phoneNumber: String? = null,   // 電話番号（任意）
+    val address: String? = null        // 住所（任意）
 )
 ```
 
-**結果: Kotlin版は約1/8の行数で同等の機能を実現**
+**利点:**
+- `String?` 型でnullableであることが明示されている
+- 型システムがnull安全を保証するため、コンパイル時にnullチェックが強制される
+- Safe call演算子（`?.`）、Elvis演算子（`?:`）で簡潔にnull処理が可能
+
+**結果: Kotlin版は約1/9の行数で同等の機能を実現**
 
 ---
 
@@ -240,14 +261,120 @@ private fun UserDto.toEntity() = User(
 
 ---
 
+### 7. **NEW:** Null安全性の違い（DBのnull値の扱い）
+
+KotlinのNull安全性により、DBにnullが入っていた場合のDTOの扱いがJavaよりも圧倒的に楽になります。
+
+#### Java版：冗長なnullチェックが必要
+
+```java
+// ユーザーの表示名を取得
+public String getDisplayName(UserDto user) {
+    if (user.getNickname() != null) {
+        return user.getNickname();
+    } else {
+        return user.getName();
+    }
+}
+
+// 電話番号の文字数を取得
+public int getPhoneNumberLength(UserDto user) {
+    if (user.getPhoneNumber() != null) {
+        return user.getPhoneNumber().length();
+    } else {
+        return 0;
+    }
+}
+
+// 住所が登録されているか確認
+public boolean hasAddress(UserDto user) {
+    return user.getAddress() != null && !user.getAddress().isEmpty();
+}
+```
+
+**問題点:**
+- 各nullableフィールドに対して、if-elseで冗長なnullチェックが必要
+- nullチェックを忘れると`NullPointerException`が発生
+- コードが長くなり、可読性が低下
+
+#### Kotlin版：Safe call演算子とElvis演算子で簡潔
+
+```kotlin
+// ユーザーの表示名を取得
+fun getDisplayName(user: UserDto): String {
+    return user.nickname ?: user.name
+}
+
+// 電話番号の文字数を取得
+fun getPhoneNumberLength(user: UserDto): Int {
+    return user.phoneNumber?.length ?: 0
+}
+
+// 住所が登録されているか確認
+fun hasAddress(user: UserDto): Boolean {
+    return !user.address.isNullOrEmpty()
+}
+```
+
+**利点:**
+- Safe call演算子（`?.`）でnullの場合は自動的にnullを返す
+- Elvis演算子（`?:`）でデフォルト値を設定
+- `isNullOrEmpty()`でnullチェックと空文字チェックを同時に実行
+- 1行で安全に処理でき、可読性が高い
+
+#### ResultSetからの変換でもnull安全
+
+**Java版:**
+```java
+private User mapResultSetToUser(ResultSet rs) throws SQLException {
+    return new User(
+            rs.getLong("id"),
+            rs.getString("name"),
+            rs.getString("email"),
+            rs.getInt("age"),
+            rs.getString("nickname"),       // nullの可能性があるが、型システムでは検出されない
+            rs.getString("phone_number"),
+            rs.getString("address")
+    );
+}
+```
+
+**問題点:**
+- `getString()`はnullを返す可能性があるが、コンパイラは警告しない
+- 実行時にnullが入っていても、使用するまでNPEは発生しない
+
+**Kotlin版:**
+```kotlin
+private fun ResultSet.toUser() = User(
+    id = getLong("id"),
+    name = getString("name"),
+    email = getString("email"),
+    age = getInt("age"),
+    nickname = getString("nickname"),          // DBからnullが返される可能性
+    phoneNumber = getString("phone_number"),
+    address = getString("address")
+)
+```
+
+**利点:**
+- `getString()`はKotlinでは`String?`型を返す
+- `User`クラスの`nickname`、`phoneNumber`、`address`は`String?`型なので、そのまま代入可能
+- 型システムが一致しているため、コンパイルエラーが発生しない
+
+---
+
 ## 主な違いまとめ
 
 | 項目 | Java | Kotlin |
 |-----|------|--------|
-| **コード量** | 約80行 | 約10行 |
+| **コード量** | 約130行 | 約15行 |
 | **ボイラープレート** | 多い | 非常に少ない |
 | **イミュータブル** | 手動実装が必要 | `val`で簡単 |
-| **Null安全性** | アノテーションで対応 | 言語レベルでサポート |
+| **Null安全性** | アノテーションで対応 | **言語レベルでサポート** ✨ |
+| **Nullable型の表現** | 型では区別できない | **String? で明示** ✨ |
+| **コンパイル時nullチェック** | なし | **あり** ✨ |
+| **Null処理の冗長性** | if-elseが必要 | **?.、?:で簡潔** ✨ |
+| **NullPointerException** | 実行時に発生するリスク | **コンパイル時に防げる** ✨ |
 | **copy機能** | なし | data classで自動生成 |
 | **可読性** | setter連鎖で読みにくい | 名前付き引数で明確 |
 | **メンテナンス性** | フィールド追加時に多数の箇所を修正 | data classの定義のみ修正 |

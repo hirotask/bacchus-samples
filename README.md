@@ -33,44 +33,23 @@
 ./gradlew clean
 ```
 
-## JavaとKotlinのDTO比較
+## JavaとKotlinの比較
 
-詳細な比較については [DTO_COMPARISON.md](./DTO_COMPARISON.md) をご覧ください。
+このプロジェクトは、JavaとKotlinでDBアクセスアプリを実装し、以下の違いを明確に比較するためのサンプルです：
+
+1. **DTOの書き方の違い** - [DTO_COMPARISON.md](./DTO_COMPARISON.md)
+2. **Null安全性の違い** - [NULL_SAFETY_COMPARISON.md](./NULL_SAFETY_COMPARISON.md)
 
 ### 主な違いのハイライト
 
 | 項目 | Java | Kotlin |
 |-----|------|--------|
-| **コード量** | 約80行 | 約10行 |
+| **コード量** | 約130行 | 約15行 |
 | **ボイラープレート** | 多い | 非常に少ない |
 | **イミュータブル** | 手動実装が必要 | `val`で簡単 |
+| **Null安全性** | 型では区別できない | **言語レベルでサポート** |
+| **NullPointerException** | 実行時に発生するリスク | **コンパイル時に防げる** |
 | **copy機能** | なし | data classで自動生成 |
-
-**Java版のDTO例:**
-```java
-public class UserDto {
-    private Long id;
-    private String name;
-    private String email;
-    private int age;
-
-    // コンストラクタ、getter/setter、equals、hashCode、toStringが必要
-    // 合計約80行のコード
-}
-```
-
-**Kotlin版のDTO例:**
-```kotlin
-data class UserDto(
-    val id: Long? = null,
-    val name: String,
-    val email: String,
-    val age: Int
-)
-// わずか6行で同等の機能を実現
-```
-
----
 
 ## Gradleについて
 

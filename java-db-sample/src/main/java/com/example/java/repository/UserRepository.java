@@ -23,7 +23,10 @@ public class UserRepository {
                 "id BIGINT AUTO_INCREMENT PRIMARY KEY, " +
                 "name VARCHAR(255) NOT NULL, " +
                 "email VARCHAR(255) NOT NULL, " +
-                "age INT NOT NULL" +
+                "age INT NOT NULL, " +
+                "nickname VARCHAR(255), " +
+                "phone_number VARCHAR(255), " +
+                "address VARCHAR(255)" +
                 ")";
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
@@ -31,11 +34,14 @@ public class UserRepository {
     }
 
     public User save(User user) throws SQLException {
-        String sql = "INSERT INTO users (name, email, age) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO users (name, email, age, nickname, phone_number, address) VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, user.getName());
             pstmt.setString(2, user.getEmail());
             pstmt.setInt(3, user.getAge());
+            pstmt.setString(4, user.getNickname());
+            pstmt.setString(5, user.getPhoneNumber());
+            pstmt.setString(6, user.getAddress());
             pstmt.executeUpdate();
 
             try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
@@ -48,7 +54,7 @@ public class UserRepository {
     }
 
     public Optional<User> findById(Long id) throws SQLException {
-        String sql = "SELECT id, name, email, age FROM users WHERE id = ?";
+        String sql = "SELECT id, name, email, age, nickname, phone_number, address FROM users WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setLong(1, id);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -62,7 +68,7 @@ public class UserRepository {
 
     public List<User> findAll() throws SQLException {
         List<User> users = new ArrayList<>();
-        String sql = "SELECT id, name, email, age FROM users";
+        String sql = "SELECT id, name, email, age, nickname, phone_number, address FROM users";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
@@ -73,12 +79,15 @@ public class UserRepository {
     }
 
     public void update(User user) throws SQLException {
-        String sql = "UPDATE users SET name = ?, email = ?, age = ? WHERE id = ?";
+        String sql = "UPDATE users SET name = ?, email = ?, age = ?, nickname = ?, phone_number = ?, address = ? WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, user.getName());
             pstmt.setString(2, user.getEmail());
             pstmt.setInt(3, user.getAge());
-            pstmt.setLong(4, user.getId());
+            pstmt.setString(4, user.getNickname());
+            pstmt.setString(5, user.getPhoneNumber());
+            pstmt.setString(6, user.getAddress());
+            pstmt.setLong(7, user.getId());
             pstmt.executeUpdate();
         }
     }
@@ -91,12 +100,23 @@ public class UserRepository {
         }
     }
 
+    /**
+     * ResultSetからUserオブジェクトへの変換
+     *
+     * Null安全性の課題:
+     * - getString()はnullを返す可能性があるが、Javaでは型システムで保証されない
+     * - nullチェックを忘れるとNullPointerExceptionのリスク
+     * - Kotlinと異なり、コンパイル時にnullチェックが強制されない
+     */
     private User mapResultSetToUser(ResultSet rs) throws SQLException {
         return new User(
                 rs.getLong("id"),
                 rs.getString("name"),
                 rs.getString("email"),
-                rs.getInt("age")
+                rs.getInt("age"),
+                rs.getString("nickname"),       // nullの可能性があるが、型システムでは検出されない
+                rs.getString("phone_number"),   // nullの可能性があるが、型システムでは検出されない
+                rs.getString("address")         // nullの可能性があるが、型システムでは検出されない
         );
     }
 }
